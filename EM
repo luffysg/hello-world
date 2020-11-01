@@ -1,0 +1,76 @@
+
+
+Implement the EM algorithm for a p-dimensional Gaussian mixture model with G components
+
+Output in a list in R with below components
+prob: G-dimensional prob vector (p1,...,pG)
+mean: p by G matrix with the k-th column being uk, the p-dimensional mean for the k-th Gaussian component;
+sigma: p-by-p covariance matrix sigma shared by all G components
+
+https://www.cs.ubc.ca/~murphyk/Teaching/CS340-Fall06/reading/mixtureModels.pdf
+
+pdf for multivariate normal distribution:
+http://cs229.stanford.edu/section/gaussians.pdf
+
+function to return log-pdf of multi-variate Gaussian distribution
+```{r}
+log_pdf_mvn = function(x, mu, cov_matrix){
+        tmp = -(length(x)/2)*log(pi)
+        tmp = tmp - 0.5*log(norm(cov_matrix))
+        tmp_exp = -0.5*(t(x-mu)%*%solve(cov_matrix)%*%(x-mu))
+        tmp + tmp_exp
+}
+```
+
+
+```{r}
+Estep <- function(data, G, para){
+  # Your Code
+  # Return the n-by-G probability matrix
+        #para$prob
+        #para$mean
+        #para$Sigma
+        N = dim(data)[1]
+        result_nG = matrix(0, nrow = N, ncol = G)
+        for(i in 1:N){
+                aG = log(para$prob)
+                aG = aG + log_pdf_mvn(data[i,], para$mean, para$Sigma)
+                aG = aG - min(aG) # prevent overflow
+                result_nG[i,] = exp(aG)/sum(exp(aG))
+        }
+        
+        return(result_nG)
+        
+  }
+```
+
+
+
+```{r}
+Mstep <- function(data, G, para, post.prob){ 
+  # Your Code
+  # Return the updated parameters
+        #update mean vector
+        para$mean = t(data) %*% post.prob %*% diag(1/colSums(post.prob))
+        
+        # update the covariance matrix
+  }
+```
+
+
+```{r}
+myEM <- function(data, itmax, G, para){
+  # itmax: num of iterations
+  # G:     num of components
+  # para:  list of parameters (prob, mean, Sigma)
+  for(t in 1:itmax){
+    post.prob <- Estep(data, G, para)
+    para <- Mstep(data, G, para, post.prob)
+  }
+  return(para)
+}
+```
+
+
+
+
