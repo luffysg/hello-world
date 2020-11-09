@@ -1,0 +1,92 @@
+library(lubridate)
+library(tidyverse)
+
+# read raw data and extract date column
+train_raw <- readr::read_csv(unz('train.csv.zip', 'train.csv'))
+train_dates <- train_raw$Date
+
+# training data from 2010-02 to 2011-02
+start_date <- ymd("2010-02-01")
+end_date <- start_date %m+% months(13)
+
+# split dataset into training / testing
+train_ids <- which(train_dates >= start_date & train_dates < end_date)
+train = train_raw[train_ids, ]
+test = train_raw[-train_ids, ]
+
+# create the initial training data
+readr::write_csv(train, 'train_ini.csv')
+
+# create test.csv 
+# removes weekly sales
+test %>% 
+  select(-Weekly_Sales) %>% 
+  readr::write_csv('test.csv')
+
+# create 10-fold time-series CV
+num_folds <- 10
+test_dates <- train_dates[-train_ids]
+
+# month 1 --> 2011-03, and month 20 --> 2012-10.
+# Fold 1 : month 1 & month 2, Fold 2 : month 3 & month 4 ...
+for (i in 1:num_folds) {
+    # filter fold for dates
+    start_date <- ymd("2011-03-01") %m+% months(2 * (i - 1))
+    end_date <- ymd("2011-05-01") %m+% months(2 * (i - 1))
+    test_fold <- test %>%
+        filter(Date >= start_date & Date < end_date)
+    
+    # write fold to a file
+    readr::write_csv(test_fold, paste0('fold_', i, '.csv'))
+}
+
+
+
+
+
+
+
+
+
+
+
+# library(xxx): load all allowed libraries, e.g., lubridate, tidyverse.
+source("mymain.R")
+
+# read in train / test dataframes
+train <- readr::read_csv('train_ini.csv')
+test <- readr::read_csv('test.csv')
+
+# save weighted mean absolute error WMAE
+num_folds <- 10
+wae <- rep(0, num_folds)
+
+for (t in 1:num_folds) {
+  # *** THIS IS YOUR PREDICTION FUNCTION ***
+  test_pred <- mypredict()
+  
+  # load fold file 
+  fold_file <- paste0('fold_', t, '.csv')
+  new_train <- readr::read_csv(fold_file, 
+                               col_types = cols())
+
+  # extract predictions matching up to the current fold
+  scoring_tbl <- new_train %>% 
+      left_join(test_pred, by = c('Date', 'Store', 'Dept'))
+  
+  # compute WMAE
+  actuals <- scoring_tbl$Weekly_Sales
+  preds <- scoring_tbl$Weekly_Pred
+  preds[is.na(preds)] <- 0
+  weights <- if_else(scoring_tbl$IsHoliday, 5, 1)
+  wae[t] <- sum(weights * abs(actuals - preds)) / sum(weights)
+}
+
+print(wae)
+mean(wae)
+
+
+
+
+
+
